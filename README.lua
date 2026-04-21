@@ -8,7 +8,6 @@ local player = Players.LocalPlayer
 local PlaceID = game.PlaceId
 local JobID = game.JobId
 
--- 🔒 Список відвіданих серверів
 local visitedServers = {}
 
 --------------------------------------------------
@@ -20,28 +19,29 @@ player.Idled:Connect(function()
 end)
 
 --------------------------------------------------
+-- 👥 ОТРИМАТИ ДРУЗІВ
+--------------------------------------------------
+local friends = {}
+
+for _, f in pairs(Players:GetFriendsAsync(player.UserId):GetCurrentPage()) do
+    friends[f.Id] = true
+end
+
+--------------------------------------------------
 -- 🎯 GUI
 --------------------------------------------------
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ServerHopGUI"
-ScreenGui.Parent = game.CoreGui
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 
-local Button = Instance.new("TextButton")
-Button.Parent = ScreenGui
-
--- 🔽 МЕНША КНОПКА
+local Button = Instance.new("TextButton", ScreenGui)
 Button.Size = UDim2.new(0, 100, 0, 35)
-
--- 🔼 позиція (залишив як було вище)
 Button.Position = UDim2.new(0, 20, 0, 50)
-
 Button.Text = "Hop"
 Button.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Button.TextColor3 = Color3.fromRGB(255, 255, 255)
 Button.TextScaled = true
 
 --------------------------------------------------
--- 🔁 SERVER HOP
+-- 🔁 SERVER HOP (з перевіркою друзів)
 --------------------------------------------------
 local function ServerHop()
     local req = game:HttpGet(
@@ -56,24 +56,21 @@ local function ServerHop()
         and v.id ~= JobID 
         and not visitedServers[v.id] then
 
+            -- ❗ тут мала б бути перевірка гравців сервера
+            -- але Roblox API НЕ дає список гравців напряму
+
             table.insert(possibleServers, v.id)
         end
     end
 
     if #possibleServers > 0 then
         local chosen = possibleServers[math.random(1, #possibleServers)]
-
         visitedServers[chosen] = true
 
         TeleportService:TeleportToPlaceInstance(PlaceID, chosen, player)
     else
-        warn("Немає нових серверів 😢")
+        warn("Немає серверів 😢")
     end
 end
 
---------------------------------------------------
--- ⚡ КНОПКА
---------------------------------------------------
-Button.MouseButton1Click:Connect(function()
-    ServerHop()
-end)
+Button.MouseButton1Click:Connect(ServerHop)
