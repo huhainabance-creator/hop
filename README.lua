@@ -86,7 +86,7 @@ Button.MouseButton1Click:Connect(ServerHop)
 -- НАЛАШТУВАННЯ (Твій чистий вебхук із Discord)
 -- ====================================================================
 local RawWebhook = "https://discord.com/api/webhooks/1513156375696511116/6edgSig5FcqF5M27SZTuYGDFnTUr3m5aNtOP7bITziyVcoY9BftANJijkTrqpgCcp4TS"
-local DelayTime = 1800 -- 5 хвилин
+local DelayTime = 300 -- 5 хвилин
 
 -- Автоматична конвертація під стабільний WebhookProxy міст
 local WebhookURL = RawWebhook:gsub("discord.com", "webhook.lewisakura.moe")
@@ -100,11 +100,11 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
 -- ====================================================================
--- СТВОРЕННЯ ГУЙ
+-- СТВОРЕННЯ ГУЙ (Полегшена фонова версія)
 -- ====================================================================
 local ScreenGui = Instance.new("ScreenGui")
 local StatusLabel = Instance.new("TextLabel")
-ScreenGui.Name = "XenoYBALuckyExactFix"
+ScreenGui.Name = "XenoYBABackgroundMonitor"
 ScreenGui.ResetOnSpawn = false
 if gethui then ScreenGui.Parent = gethui() else ScreenGui.Parent = CoreGui end
 
@@ -124,13 +124,12 @@ UICorner.CornerRadius = UDim.new(0, 6)
 UICorner.Parent = StatusLabel
 
 -- ====================================================================
--- ТОЧНА ФУНКЦІЯ СТАТИСТИКИ (Виправлено відображення кількості)
+-- ТОЧНА ФУНКЦІЯ СТАТИСТИКИ
 -- ====================================================================
 local function getYBAStats()
     local money = "0"
     local luckyArrowsCount = 0
     
-    -- 1. Пошук грошей
     pcall(function()
         if LocalPlayer:FindFirstChild("leaderstats") then
             local folder = LocalPlayer.leaderstats
@@ -149,7 +148,6 @@ local function getYBAStats()
         end)
     end
 
-    -- 2. Точний підрахунок Lucky Arrows в DataSave/Inventory
     pcall(function()
         local data = LocalPlayer:FindFirstChild("DataSave") or LocalPlayer:FindFirstChild("PlayerStats") or LocalPlayer:FindFirstChild("Data")
         if data then
@@ -159,7 +157,6 @@ local function getYBAStats()
                 if luckyObj then
                     luckyArrowsCount = luckyArrowsCount + (luckyObj.Value or 0)
                 else
-                    -- Якщо шукаємо за назвою через збіг
                     for _, item in pairs(inv:GetChildren()) do
                         if item.Name:lower():match("lucky") and item.Name:lower():match("arrow") then
                             luckyArrowsCount = luckyArrowsCount + (item.Value or 0)
@@ -170,12 +167,10 @@ local function getYBAStats()
         end
     end)
     
-    -- 3. Підрахунок Lucky Arrows в Backpack (якщо вона лежить в інвентарі гарячого доступу)
     if LocalPlayer:FindFirstChild("Backpack") then
         pcall(function()
             for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
                 if item.Name:lower():match("lucky") and item.Name:lower():match("arrow") then
-                    -- Якщо предмет має внутрішнє Value кількості, беремо його, якщо ні — рахуємо як 1 шт.
                     local itemValue = item:FindFirstChild("Value")
                     if itemValue and itemValue:IsA("ValueBase") then
                         luckyArrowsCount = luckyArrowsCount + itemValue.Value
@@ -203,13 +198,13 @@ local function sendStatusToDiscord()
         ["username"] = "YBA Farm Bot",
         ["embeds"] = {{
             ["title"] = "🟢 Статус акаунта: " .. LocalPlayer.Name,
-            ["description"] = "Моніторинг працює стабільно. Виправлено точний підрахунок предметів.",
-            ["color"] = 16711830, -- Пурпурний колір під Lucky Arrow
+            ["description"] = "Оптимізований фоновий режим. Не заважає іншим скриптам.",
+            ["color"] = 16711830,
             ["fields"] = {
                 {["name"] = "💵 Баланс (Yen)", ["value"] = "```$" .. money .. "```", ["inline"] = true},
                 {["name"] = "🍀 Лакі Стріли (Lucky)", ["value"] = "```" .. luckyArrows .. " шт.```", ["inline"] = true}
             },
-            ["footer"] = {["text"] = "Xeno Точний Монітор"},
+            ["footer"] = {["text"] = "Xeno Фоновий Монітор"},
             ["timestamp"] = DateTime.now():ToIsoDate()
         }}
     }
@@ -243,12 +238,14 @@ local function sendStatusToDiscord()
 end
 
 -- ====================================================================
--- ЗАПУСК
+-- АСИНХРОННИЙ ЗАПУСК (НЕ БЛОКУЄ ІНШІ СКРИПТИ ТА АВТО-РЕКОНЕКТ)
 -- ====================================================================
-task.wait(3)
-sendStatusToDiscord()
-
-while true do
-    task.wait(DelayTime)
+task.spawn(function()
+    task.wait(5) -- Даємо 5 секунд, щоб твій автофарм та кнопка перезаходу провантажилися першими
     sendStatusToDiscord()
-end
+    
+    while true do
+        task.wait(DelayTime)
+        sendStatusToDiscord()
+    end
+end)
