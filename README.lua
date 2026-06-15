@@ -83,13 +83,14 @@ Button.MouseButton1Click:Connect(ServerHop)
 
 
 -- ====================================================================
--- НАЛАШТУВАННЯ (Твій чистий вебхук із Discord)
+-- НАЛАШТУВАННЯ
 -- ====================================================================
 local RawWebhook = "https://discord.com/api/webhooks/1513156375696511116/6edgSig5FcqF5M27SZTuYGDFnTUr3m5aNtOP7bITziyVcoY9BftANJijkTrqpgCcp4TS"
 local DelayTime = 300 -- 5 хвилин
 
--- Автоматична конвертація під стабільний WebhookProxy міст
-local WebhookURL = RawWebhook:gsub("discord.com", "webhook.lewisakura.moe")
+-- Надійний та швидкий проксі для вебхуків (без лагів при відправці)
+local WebhookURL = RawWebhook:gsub("discord.com", "webhook.lewisakura.moe") 
+-- Якщо lewisakura лагає, заміни на "hooks.hyra.io" або "api.webhook.queue"
 
 -- ====================================================================
 -- СЕРВІСИ ТА ЗМІННІ
@@ -99,14 +100,20 @@ local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
+-- Видаляємо стару копію монітора, щоб вони не накопичувалися в пам'яті
+local oldGui = CoreGui:FindFirstChild("XenoYBABackgroundMonitor") or (gethui and gethui():FindFirstChild("XenoYBABackgroundMonitor"))
+if oldGui then oldGui:Destroy() end
+
 -- ====================================================================
--- СТВОРЕННЯ ГУЙ (Полегшена фонова версія)
+-- СТВОРЕННЯ ГУЙ (Максимально полегшене)
 -- ====================================================================
 local ScreenGui = Instance.new("ScreenGui")
 local StatusLabel = Instance.new("TextLabel")
+local UICorner = Instance.new("UICorner")
+
 ScreenGui.Name = "XenoYBABackgroundMonitor"
 ScreenGui.ResetOnSpawn = false
-if gethui then ScreenGui.Parent = gethui() else ScreenGui.Parent = CoreGui end
+ScreenGui.Parent = (gethui and gethui()) or CoreGui
 
 StatusLabel.Name = "StatusLabel"
 StatusLabel.Parent = ScreenGui
@@ -119,74 +126,57 @@ StatusLabel.Text = "[YBA Monitor: Initializing ⏳]"
 StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 StatusLabel.TextSize = 14
 StatusLabel.BorderSizePixel = 0
-local UICorner = Instance.new("UICorner")
+
 UICorner.CornerRadius = UDim.new(0, 6)
 UICorner.Parent = StatusLabel
 
 -- ====================================================================
--- ТОЧНА ФУНКЦІЯ СТАТИСТИКИ
+-- ОПТИМІЗОВАНА ФУНКЦІЯ СТАТИСТИКИ (БЕЗ НАВАНТАЖЕННЯ)
 -- ====================================================================
 local function getYBAStats()
     local money = "0"
     local luckyArrowsCount = 0
     
-    pcall(function()
-        if LocalPlayer:FindFirstChild("leaderstats") then
-            local folder = LocalPlayer.leaderstats
-            local m = folder:FindFirstChild("Money") or folder:FindFirstChild("Yen") or folder:FindFirstChild("Cash")
+    -- Швидкий пошук грошей в leaderstats
+    local lStats = LocalPlayer:FindFirstChild("leaderstats")
+    if lStats then
+        local m = lStats:FindFirstChild("Money") or lStats:FindFirstChild("Yen") or lStats:FindFirstChild("Cash")
+        if m then money = tostring(m.Value) end
+    end
+    
+    -- Якщо в leaderstats немає, перевіряємо папки даних
+    local data = LocalPlayer:FindFirstChild("DataSave") or LocalPlayer:FindFirstChild("PlayerStats") or LocalPlayer:FindFirstChild("Data")
+    if data then
+        if money == "0" then
+            local m = data:FindFirstChild("Money") or data:FindFirstChild("Cash") or data:FindFirstChild("Yen")
             if m then money = tostring(m.Value) end
         end
-    end)
-    
-    if money == "0" then
-        pcall(function()
-            local data = LocalPlayer:FindFirstChild("DataSave") or LocalPlayer:FindFirstChild("PlayerStats") or LocalPlayer:FindFirstChild("Data")
-            if data then
-                local m = data:FindFirstChild("Money") or data:FindFirstChild("Cash") or data:FindFirstChild("Yen")
-                if m then money = tostring(m.Value) end
-            end
-        end)
-    end
-
-    pcall(function()
-        local data = LocalPlayer:FindFirstChild("DataSave") or LocalPlayer:FindFirstChild("PlayerStats") or LocalPlayer:FindFirstChild("Data")
-        if data then
-            local inv = data:FindFirstChild("Inventory") or data:FindFirstChild("Items")
-            if inv then
-                local luckyObj = inv:FindFirstChild("Lucky Arrow") or inv:FindFirstChild("LuckyArrow")
-                if luckyObj then
-                    luckyArrowsCount = luckyArrowsCount + (luckyObj.Value or 0)
-                else
-                    for _, item in pairs(inv:GetChildren()) do
-                        if item.Name:lower():match("lucky") and item.Name:lower():match("arrow") then
-                            luckyArrowsCount = luckyArrowsCount + (item.Value or 0)
-                        end
-                    end
-                end
+        
+        -- Шукаємо Лакі Стріли без жорсткого перебору рядків за допомогою match
+        local inv = data:FindFirstChild("Inventory") or data:FindFirstChild("Items")
+        if inv then
+            local luckyObj = inv:FindFirstChild("Lucky Arrow") or inv:FindFirstChild("LuckyArrow")
+            if luckyObj then
+                luckyArrowsCount = luckyObj.Value or 0
             end
         end
-    end)
+    end
     
-    if LocalPlayer:FindFirstChild("Backpack") then
-        pcall(function()
-            for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-                if item.Name:lower():match("lucky") and item.Name:lower():match("arrow") then
-                    local itemValue = item:FindFirstChild("Value")
-                    if itemValue and itemValue:IsA("ValueBase") then
-                        luckyArrowsCount = luckyArrowsCount + itemValue.Value
-                    else
-                        luckyArrowsCount = luckyArrowsCount + 1
-                    end
-                end
+    -- Якщо в інвентарі збереження порожньо, дивимось суто фізичний Backpack (але не плюсуємо, якщо вже знайшли)
+    if luckyArrowsCount == 0 and LocalPlayer:FindFirstChild("Backpack") then
+        for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+            if item.Name == "Lucky Arrow" or item.Name == "LuckyArrow" then
+                local itemValue = item:FindFirstChild("Value")
+                luckyArrowsCount = luckyArrowsCount + (itemValue and itemValue:IsA("ValueBase") and itemValue.Value or 1)
             end
-        end)
+        end
     end
 
     return money, tostring(luckyArrowsCount)
 end
 
 -- ====================================================================
--- ФУНКЦІЯ ВІДПРАВКИ В ДИСКОРД
+-- ФУНКЦІЯ ВІДПРАВКИ В ДИСКОРД (ПОВНІСТЮ АСИНХРОННА)
 -- ====================================================================
 local function sendStatusToDiscord()
     local money, luckyArrows = getYBAStats()
@@ -210,38 +200,40 @@ local function sendStatusToDiscord()
     }
     
     local jsonMessage = HttpService:JSONEncode(discordData)
-    local requestFunc = request or syn and syn.request or http and http.request
+    local requestFunc = request or (syn and syn.request) or (http and http.request)
     
+    if not requestFunc then
+        StatusLabel.Text = "[YBA Monitor: No Executor API 🔴]"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 85, 85)
+        return
+    end
+
+    -- Виносимо сам HTTP-запит в окремий ізольований потік, щоб він взагалі не торкався гри
     task.spawn(function()
-        if requestFunc then
-            local success, response = pcall(function()
-                return requestFunc({
-                    Url = WebhookURL,
-                    Method = "POST",
-                    Headers = { ["Content-Type"] = "application/json" },
-                    Body = jsonMessage
-                })
-            end)
-            
-            if success and response and (response.StatusCode == 200 or response.StatusCode == 204) then
-                StatusLabel.Text = "[YBA Monitor: Delivered! 🟢]"
-                StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
-            else
-                StatusLabel.Text = "[YBA Monitor: Discord Error 🔴]"
-                StatusLabel.TextColor3 = Color3.fromRGB(255, 85, 85)
-            end
+        local success, response = pcall(function()
+            return requestFunc({
+                Url = WebhookURL,
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = jsonMessage
+            })
+        end)
+        
+        if success and response and (response.StatusCode == 200 or response.StatusCode == 204) then
+            StatusLabel.Text = "[YBA Monitor: Delivered! 🟢]"
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 128)
         else
-            StatusLabel.Text = "[YBA Monitor: No Executor API 🔴]"
+            StatusLabel.Text = "[YBA Monitor: Discord Error 🔴]"
             StatusLabel.TextColor3 = Color3.fromRGB(255, 85, 85)
         end
     end)
 end
 
 -- ====================================================================
--- АСИНХРОННИЙ ЗАПУСК (НЕ БЛОКУЄ ІНШІ СКРИПТИ ТА АВТО-РЕКОНЕКТ)
+-- ЗАПУСК
 -- ====================================================================
 task.spawn(function()
-    task.wait(5) -- Даємо 5 секунд, щоб твій автофарм та кнопка перезаходу провантажилися першими
+    task.wait(5) -- Пауза для провантаження основного чита
     sendStatusToDiscord()
     
     while true do
