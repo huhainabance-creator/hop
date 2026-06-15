@@ -86,7 +86,7 @@ Button.MouseButton1Click:Connect(ServerHop)
 -- НАЛАШТУВАННЯ
 -- ====================================================================
 local RawWebhook = "https://discord.com/api/webhooks/1513156375696511116/6edgSig5FcqF5M27SZTuYGDFnTUr3m5aNtOP7bITziyVcoY9BftANJijkTrqpgCcp4TS"
-local DelayTime = 300 -- 5 хвилин
+local DelayTime = 1800 -- 5 хвилин
 
 -- Надійний та швидкий проксі для вебхуків (без лагів при відправці)
 local WebhookURL = RawWebhook:gsub("discord.com", "webhook.lewisakura.moe") 
